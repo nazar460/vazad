@@ -374,10 +374,16 @@ REGISTRATION_TEMPLATE = """
             display: none;
         }
 
-        .theme-toggle {
+        .theme-toggle-container {
             position: absolute;
             top: 20px;
             right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .theme-toggle {
             background: none;
             border: none;
             font-size: 24px;
@@ -391,6 +397,13 @@ REGISTRATION_TEMPLATE = """
             transform: rotate(30deg);
             background: rgba(0,0,0,0.1);
         }
+
+        .theme-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-color);
+            user-select: none;
+        }
     </style>
 </head>
 <body>
@@ -398,7 +411,10 @@ REGISTRATION_TEMPLATE = """
 <div class="beta-badge">БЕТА ТЕСТУВАННЯ</div>
 
 <div class="registration-container">
-    <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+    <div class="theme-toggle-container">
+        <span class="theme-label">теми День/ніч</span>
+        <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+    </div>
     <div class="game-title">🇺🇦 Мовне відкриття 🇺🇦</div>
     <div class="game-subtitle">Західна Ґвара - Велика вікторина</div>
 
@@ -586,10 +602,17 @@ HTML_TEMPLATE = """
             transform: scale(1.05);
         }
 
-        .theme-toggle {
+        .theme-toggle-container {
             position: absolute;
             top: 15px;
             right: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        .theme-toggle {
             background: none;
             border: none;
             font-size: 24px;
@@ -597,12 +620,18 @@ HTML_TEMPLATE = """
             padding: 5px;
             border-radius: 50%;
             transition: transform 0.3s;
-            z-index: 10;
         }
 
         .theme-toggle:hover {
             transform: rotate(30deg);
             background: rgba(255,255,255,0.1);
+        }
+
+        .theme-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-color);
+            user-select: none;
         }
 
         .game-header {
@@ -848,7 +877,10 @@ HTML_TEMPLATE = """
 <div class="beta-badge">БЕТА ТЕСТУВАННЯ</div>
 
 <div class="game-container">
-    <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+    <div class="theme-toggle-container">
+        <span class="theme-label">теми День/ніч</span>
+        <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+    </div>
 
     <div class="users-counter" onclick="adminLogin()">
         👥
