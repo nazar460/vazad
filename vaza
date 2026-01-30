@@ -1,0 +1,1273 @@
+from flask import Flask, render_template_string, request, session, redirect, url_for, jsonify
+import json
+from datetime import datetime
+import os
+
+app = Flask(__name__)
+app.secret_key = 'your-secret-key-here-change-in-production'
+
+# Файл бази даних
+USERS_FILE = 'users_clean.json'
+
+
+# Функція для завантаження користувачів
+def load_users():
+    if os.path.exists(USERS_FILE):
+        try:
+            with open(USERS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+
+# Функція для збереження користувачів
+def save_users(users):
+    with open(USERS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(users, f, ensure_ascii=False, indent=2)
+
+
+# Функція для додавання нового користувача
+def add_user(name, email):
+    users = load_users()
+
+    for user in users:
+        if user.get('email') == email:
+            if user['name'] != name:
+                user['name'] = name
+                save_users(users)
+            return
+
+    new_user = {
+        'name': name,
+        'email': email,
+        'registered_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+    users.append(new_user)
+    save_users(users)
+
+
+# БАЗА ПИТАНЬ (100 запитань)
+QUESTIONS = [
+    # --- ІСНУЮЧІ ПИТАННЯ (IDs 1-50) ---
+    {"id": 1, "question": "Що таке 'баняк'?", "options": ["Лазня", "Каструля", "Банка"], "answer": "Каструля"},
+    {"id": 2, "question": "Що таке 'люстро'?", "options": ["Дзеркало", "Люстра", "Вікно"], "answer": "Дзеркало"},
+    {"id": 3, "question": "Що означає слово 'шуфля'?", "options": ["Шухляда", "Лопата", "Шафа"], "answer": "Лопата"},
+    {"id": 4, "question": "Хто така 'кобіта'?", "options": ["Жінка", "Кобила", "Кімната"], "answer": "Жінка"},
+    {"id": 5, "question": "Що таке 'ринва'?", "options": ["Рівнина", "Водостічна труба", "Ринок"],
+     "answer": "Водостічна труба"},
+    {"id": 6, "question": "Що таке 'гальба'?", "options": ["Гальмо", "Пивний кухоль", "Шарф"],
+     "answer": "Пивний кухоль"},
+    {"id": 7, "question": "Що означає 'трафунок'?", "options": ["Подарунок", "Випадок/Пригода", "Трава"],
+     "answer": "Випадок/Пригода"},
+    {"id": 8, "question": "Що таке 'камізелька'?", "options": ["Камінь", "Жилет", "Сорочка"], "answer": "Жилет"},
+    {"id": 9, "question": "Що таке 'пляц'?", "options": ["Пляж", "Площа/Місце", "Пиріг"], "answer": "Площа/Місце"},
+    {"id": 10, "question": "Якщо хтось кричить 'ґвалт', що це?",
+     "options": ["Привітання", "Крик про допомогу/Галас", "Сміх"], "answer": "Крик про допомогу/Галас"},
+    {"id": 11, "question": "Що таке 'кнайпа'?", "options": ["Магазин", "Кафе/Ресторан", "Бібліотека"],
+     "answer": "Кафе/Ресторан"},
+    {"id": 12, "question": "Що означає слово 'п'єц'?", "options": ["Піч", "Пес", "П'яниця"], "answer": "Піч"},
+    {"id": 13, "question": "Хто такий 'батяр'?", "options": ["Поліцейський", "Веселий хуліган/Гульвіса", "Священик"],
+     "answer": "Веселий хуліган/Гульвіса"},
+    {"id": 14, "question": "Що таке 'пляцок'?", "options": ["Пиріг/Торт", "Пляшка", "Площа"], "answer": "Пиріг/Торт"},
+    {"id": 15, "question": "Хто така 'цьоця'?", "options": ["Бабуся", "Тітка", "Сестра"], "answer": "Тітка"},
+    {"id": 16, "question": "Кого називають 'вар'ят'?", "options": ["Лікар", "Божевільний/Дивак", "Водій"],
+     "answer": "Божевільний/Дивак"},
+    {"id": 17, "question": "Що таке 'когут'?", "options": ["Півень", "Кіт", "Індик"], "answer": "Півень"},
+    {"id": 18, "question": "Що таке 'шмата'?", "options": ["Сукня", "Ганчірка", "Шматок хліба"], "answer": "Ганчірка"},
+    {"id": 19, "question": "Що означає 'фризура'?", "options": ["Зачіска", "Манікюр", "Одяг"], "answer": "Зачіска"},
+    {"id": 20, "question": "Що таке 'брама'?", "options": ["Двері/Ворота", "Вікно", "Стіна"], "answer": "Двері/Ворота"},
+    {"id": 21, "question": "Як на діалекті сказати 'штани'?", "options": ["Гачі", "Штани", "Мешти"], "answer": "Гачі"},
+    {"id": 22, "question": "Що таке 'ровер'?", "options": ["Машина", "Велосипед", "Мотоцикл"], "answer": "Велосипед"},
+    {"id": 23, "question": "Як називають картоплю?", "options": ["Бульба", "Грушка", "Цибуля"], "answer": "Бульба"},
+    {"id": 24, "question": "Що таке 'стрих'?", "options": ["Підвал", "Дах", "Горище"], "answer": "Горище"},
+    {"id": 25, "question": "Якщо просять подати 'пательню', що це?", "options": ["Каструля", "Сковорідка", "Виделка"],
+     "answer": "Сковорідка"},
+    {"id": 26, "question": "Що таке 'зупа'?", "options": ["Суп", "Каша", "Чай"], "answer": "Суп"},
+    {"id": 27, "question": "Як називають полуницю?", "options": ["Малина", "Трускавка", "Афина"],
+     "answer": "Трускавка"},
+    {"id": 28, "question": "Хто такий 'вуйко'?", "options": ["Дядько", "Брат", "Сусід"], "answer": "Дядько"},
+    {"id": 29, "question": "Що означає слово 'файно'?", "options": ["Погано", "Добре", "Швидко"], "answer": "Добре"},
+    {"id": 30, "question": "Що таке 'мешти'?", "options": ["Черевики", "Шкарпетки", "Рукавиці"], "answer": "Черевики"},
+    {"id": 31, "question": "Що таке 'філіжанка'?", "options": ["Тарілка", "Чашка", "Пляшка"], "answer": "Чашка"},
+    {"id": 32, "question": "Що ховається за словом 'слоїк'?", "options": ["Скляна банка", "Стілець", "Шар сала"],
+     "answer": "Скляна банка"},
+    {"id": 33, "question": "Якщо на дворі 'зимно', то там...?", "options": ["Темно", "Холодно", "Слизько"],
+     "answer": "Холодно"},
+    {"id": 34, "question": "Що таке 'канапка'?", "options": ["Диван", "Бутерброд", "Подушка"], "answer": "Бутерброд"},
+    {"id": 35, "question": "Хто така 'коліжанка'?", "options": ["Вчителька", "Сусідка", "Подруга"],
+     "answer": "Подруга"},
+    {"id": 36, "question": "Що таке 'коцик'?", "options": ["Котик", "Килимок/Ковдра", "Цукерка"],
+     "answer": "Килимок/Ковдра"},
+    {"id": 37, "question": "Що означає 'шпондер'?", "options": ["Сало з м'ясом", "Шпінат", "Паркан"],
+     "answer": "Сало з м'ясом"},
+    {"id": 38, "question": "Що таке 'путня'?", "options": ["Дорога", "Відро", "Калюжа"], "answer": "Відро"},
+    {"id": 39, "question": "Якщо хтось каже 'закаляпуцкати', що він зробив?",
+     "options": ["Забруднив", "З'їв", "Загубив"], "answer": "Забруднив"},
+    {"id": 40, "question": "Що таке 'забава'?", "options": ["Бійка", "Робота", "Свято/Вечірка"],
+     "answer": "Свято/Вечірка"},
+    {"id": 41, "question": "Що таке 'кульчики'?", "options": ["Кульки", "Сережки", "Ключі"], "answer": "Сережки"},
+    {"id": 42, "question": "Що таке 'маринарка'?", "options": ["Піджак", "Маринований огірок", "Сорочка"],
+     "answer": "Піджак"},
+    {"id": 43, "question": "Що таке 'фіра'?", "options": ["Машина", "Віз", "Фіранка"], "answer": "Віз"},
+    {"id": 44, "question": "Що таке 'андрути'?", "options": ["Вафлі", "Цукерки", "Пряники"], "answer": "Вафлі"},
+    {"id": 45, "question": "Що таке 'пуделко'?", "options": ["Пудра", "Коробка", "Подушка"], "answer": "Коробка"},
+    {"id": 46, "question": "Що таке 'обрус'?", "options": ["Рушник", "Скатертина", "Килим"], "answer": "Скатертина"},
+    {"id": 47, "question": "Що таке 'цинамон'?", "options": ["Лимон", "Кориця", "Цибуля"], "answer": "Кориця"},
+    {"id": 48, "question": "Що таке 'шляфрок'?", "options": ["Капелюх", "Халат", "Шарф"], "answer": "Халат"},
+    {"id": 49, "question": "Що означає 'дефіляда'?", "options": ["Сварка", "Прогулянка/Парад", "Черга"],
+     "answer": "Прогулянка/Парад"},
+    {"id": 50, "question": "Що таке 'братрура'?", "options": ["Брат", "Труба", "Духовка"], "answer": "Духовка"},
+    # --- НОВІ 50 ЗАПИТАНЬ (IDs 51-100) ---
+    {"id": 51, "question": "Що таке 'афини'?", "options": ["Чорниці", "Гриби", "Маслини"], "answer": "Чорниці"},
+    {"id": 52, "question": "Що таке 'бамбетель'?",
+     "options": ["Лавка-ліжко", "Музичний інструмент", "Бамбукова палиця"], "answer": "Лавка-ліжко"},
+    {"id": 53, "question": "Що таке 'бритванка'?", "options": ["Бритва", "Форма для випікання", "Маленька бригада"],
+     "answer": "Форма для випікання"},
+    {"id": 54, "question": "Що таке 'віхоть'?", "options": ["Букет", "Мочалка/Ганчірка", "Вихід"],
+     "answer": "Мочалка/Ганчірка"},
+    {"id": 55, "question": "Хто така 'вуйна'?", "options": ["Дядина (дружина вуйка)", "Військова", "Сусідка"],
+     "answer": "Дядина (дружина вуйка)"},
+    {"id": 56, "question": "Що означає слово 'гербата'?", "options": ["Чай", "Герб", "Трава"], "answer": "Чай"},
+    {"id": 57, "question": "Хто такий 'ґазда'?", "options": ["Гість", "Господар", "Водій"], "answer": "Господар"},
+    {"id": 58, "question": "Що таке 'ґрис'?", "options": ["Рис", "Висівки/Манна крупа", "Гравій"],
+     "answer": "Висівки/Манна крупа"},
+    {"id": 59, "question": "Що таке 'двірець'?", "options": ["Палац", "Вокзал", "Двір"], "answer": "Вокзал"},
+    {"id": 60, "question": "Що таке 'дзиґарок'?", "options": ["Дзиґа", "Годинник", "Сигарета"], "answer": "Годинник"},
+    {"id": 61, "question": "Хто такий 'дітвак'?", "options": ["Дідусь", "Дитина/Малий", "Птах"],
+     "answer": "Дитина/Малий"},
+    {"id": 62, "question": "Що таке 'драглі'?", "options": ["Дрова", "Холодець", "Цукерки"], "answer": "Холодець"},
+    {"id": 63, "question": "Хто такий 'жовнір'?", "options": ["Солдат", "Жук", "Журналіст"], "answer": "Солдат"},
+    {"id": 64, "question": "Що означає 'зафундувати'?",
+     "options": ["Збудувати фундамент", "Пригостити (заплатити)", "Заснувати"], "answer": "Пригостити (заплатити)"},
+    {"id": 65, "question": "Що таке 'здибанка'?", "options": ["Зустріч", "Сварка", "Знахідка"], "answer": "Зустріч"},
+    {"id": 66, "question": "Що означає 'калапуцяти'?", "options": ["Співати", "Перемішувати", "Купувати"],
+     "answer": "Перемішувати"},
+    {"id": 67, "question": "Хто такий 'капцан'?", "options": ["Багатій", "Капітан", "Бідняк/Невдаха"],
+     "answer": "Бідняк/Невдаха"},
+    {"id": 68, "question": "Що таке ' келішок'?", "options": ["Чарка", "Килимок", "Горішок"], "answer": "Чарка"},
+    {"id": 69, "question": "Що таке 'клямка'?", "options": ["Замок", "Дверна ручка", "Клякса"],
+     "answer": "Дверна ручка"},
+    {"id": 70, "question": "Що таке 'креденс'?", "options": ["Кредит", "Шафа для посуду/Сервант", "Крісло"],
+     "answer": "Шафа для посуду/Сервант"},
+    {"id": 71, "question": "Хто такий 'кумпель'?", "options": ["Кум", "Товариш/Друг", "Сусід"],
+     "answer": "Товариш/Друг"},
+    {"id": 72, "question": "Хто такий 'легінь'?", "options": ["Ледар", "Парубок", "Легкоатлет"], "answer": "Парубок"},
+    {"id": 73, "question": "Що означає 'люфтувати'?", "options": ["Літати", "Провітрювати", "Любити"],
+     "answer": "Провітрювати"},
+    {"id": 74, "question": "Що таке 'майтки'?", "options": ["Квіти", "Труси", "Майки"], "answer": "Труси"},
+    {"id": 75, "question": "Хто така 'мантилепа'?", "options": ["Модниця", "Неохайна жінка", "Вчителька"],
+     "answer": "Неохайна жінка"},
+    {"id": 76, "question": "Що таке 'матура'?", "options": ["Мати", "Атестат/Іспит зрілості", "Подорож"],
+     "answer": "Атестат/Іспит зрілості"},
+    {"id": 77, "question": "Що означає 'ніц'?", "options": ["Ніч", "Нічого", "Низько"], "answer": "Нічого"},
+    {"id": 78, "question": "Що таке 'обцаси'?", "options": ["Підбори", "Обценьки", "Прикраси"], "answer": "Підбори"},
+    {"id": 79, "question": "Хто такий 'оферма'?", "options": ["Фермер", "Незграба", "Офіцер"], "answer": "Незграба"},
+    {"id": 80, "question": "Що таке 'пантофлі'?", "options": ["Туфлі", "Кімнатні капці", "Штани"],
+     "answer": "Кімнатні капці"},
+    {"id": 81, "question": "Що означає 'парадоватися'?", "options": ["Йти на парад", "Пишатися/Тішитися", "Продавати"],
+     "answer": "Пишатися/Тішитися"},
+    {"id": 82, "question": "Що таке 'пацьорки'?", "options": ["Молитви", "Намисто", "Палиці"], "answer": "Намисто"},
+    {"id": 83, "question": "Що називають 'пирогами' на Галичині?", "options": ["Торти", "Вареники", "Булочки"],
+     "answer": "Вареники"},
+    {"id": 84, "question": "Що таке 'писок'?", "options": ["Пісок", "Рот/Обличчя", "Лист"], "answer": "Рот/Обличчя"},
+    {"id": 85, "question": "Що таке 'пулярес'?", "options": ["Гаманець", "Кулемет", "Пояс"], "answer": "Гаманець"},
+    {"id": 86, "question": "Що таке 'райтки'?", "options": ["Штани (галіфе)", "Поради", "Райдуга"],
+     "answer": "Штани (галіфе)"},
+    {"id": 87, "question": "Що таке 'рандка'?", "options": ["Ранок", "Побачення", "Рана"], "answer": "Побачення"},
+    {"id": 88, "question": "Що таке 'склеп'?", "options": ["Підземелля", "Магазин", "Скріпка"], "answer": "Магазин"},
+    {"id": 89, "question": "Що таке 'сподні'?", "options": ["Штани/Білизна", "Спогади", "Спідниці"],
+     "answer": "Штани/Білизна"},
+    {"id": 90, "question": "Що таке 'торба'?", "options": ["Сумка", "Труба", "Голова"], "answer": "Сумка"},
+    {"id": 91, "question": "Хто такий 'фацет'?", "options": ["Спеціаліст", "Чоловік/Парубок", "Фасад"],
+     "answer": "Чоловік/Парубок"},
+    {"id": 92, "question": "Що таке 'фляшка'?", "options": ["Пляшка", "Флешка", "Ковбаса"], "answer": "Пляшка"},
+    {"id": 93, "question": "Хто такий 'фраїр'?", "options": ["Вільна людина", "Залицяльник/Кавалер", "Перукар"],
+     "answer": "Залицяльник/Кавалер"},
+    {"id": 94, "question": "Що таке 'цвіклі'?", "options": ["Цвяхи", "Буряк з хріном", "Квіти"],
+     "answer": "Буряк з хріном"},
+    {"id": 95, "question": "Хто такий 'шваґер'?", "options": ["Брат дружини/Чоловік сестри", "Кравець", "Швець"],
+     "answer": "Брат дружини/Чоловік сестри"},
+    {"id": 96, "question": "Що таке 'шовкова'?", "options": ["Тканина", "Шовковиця (ягода)", "Сукня"],
+     "answer": "Шовковиця (ягода)"},
+    {"id": 97, "question": "Що таке 'шпиталь'?", "options": ["Школа", "Лікарня", "Готель"], "answer": "Лікарня"},
+    {"id": 98, "question": "Що таке 'штрека'?", "options": ["Стрічка", "Залізниця/Колія", "Штрих-код"],
+     "answer": "Залізниця/Колія"},
+    {"id": 99, "question": "Що таке 'ярини'?", "options": ["Овочі", "Яри", "Фрукти"], "answer": "Овочі"},
+    {"id": 100, "question": "Що таке 'яськи'?", "options": ["Подушки", "Велика квасоля", "Ясла"],
+     "answer": "Велика квасоля"}
+]
+
+REGISTRATION_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🇺🇦 Мовне відкриття 🇺🇦</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- МАСШТАБНИЙ ФІКС ДЛЯ МОБІЛЬНИХ (ЩОБ НЕ БУЛО СИНЬОГО) --- */
+        * {
+            -webkit-tap-highlight-color: transparent; /* Вимикає синє підсвічування при кліку */
+            -webkit-touch-callout: none; /* Вимикає меню при довгому натисканні */
+        }
+        body {
+            /* Забороняємо виділення тексту на сторінці */
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        /* Але дозволяємо вводити текст в інпутах */
+        input {
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+            user-select: text;
+        }
+        /* Прибираємо синю рамку фокусу */
+        button:focus, input:focus {
+            outline: none;
+        }
+        /* ------------------------------------------------------------- */
+
+        :root {
+            /* Light Theme */
+            --bg-gradient-start: #0057B7;
+            --bg-gradient-end: #FFD700;
+            --container-bg: white;
+            --text-color: #333;
+            --title-color: #0057B7;
+            --subtitle-color: #666;
+            --input-border: #e9ecef;
+            --input-focus: #0057B7;
+            --input-bg: white;
+            --input-text: #333;
+        }
+
+        body.dark-mode {
+            /* Dark Theme */
+            --bg-gradient-start: #141E30;
+            --bg-gradient-end: #243B55;
+            --container-bg: #2d3436;
+            --text-color: #ecf0f1;
+            --title-color: #74b9ff;
+            --subtitle-color: #bdc3c7;
+            --input-border: #636e72;
+            --input-focus: #74b9ff;
+            --input-bg: #636e72;
+            --input-text: white;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+            color: var(--text-color);
+            box-sizing: border-box;
+            transition: background 0.5s ease;
+        }
+
+        .beta-badge {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.3);
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            backdrop-filter: blur(5px);
+            z-index: 100;
+        }
+
+        .registration-container {
+            background: var(--container-bg);
+            width: 100%;
+            max-width: 450px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            padding: 30px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .game-title {
+            font-size: 28px;
+            color: var(--title-color);
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .game-subtitle {
+            font-size: 16px;
+            color: var(--subtitle-color);
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+            width: 100%;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 2px solid var(--input-border);
+            border-radius: 10px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+            background: var(--input-bg);
+            color: var(--input-text);
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--input-focus);
+        }
+
+        .register-btn {
+            background: #FFD700;
+            color: #0057B7;
+            border: none;
+            padding: 15px;
+            font-size: 18px;
+            font-weight: 700;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(255, 215, 0, 0.4);
+            width: 100%;
+            margin-top: 10px;
+            transition: all 0.3s;
+        }
+
+        .register-btn:hover {
+            background: #FFC700;
+            transform: translateY(-2px);
+        }
+
+        .error-message {
+            color: #dc3545;
+            font-size: 14px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .theme-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+
+        .theme-toggle:hover {
+            transform: rotate(30deg);
+            background: rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+
+<div class="beta-badge">БЕТА ТЕСТУВАННЯ</div>
+
+<div class="registration-container">
+    <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+    <div class="game-title">🇺🇦 Мовне відкриття 🇺🇦</div>
+    <div class="game-subtitle">Західна Ґвара - Велика вікторина</div>
+
+    <form method="POST" action="/" onsubmit="return validateForm()">
+        <div class="input-group">
+            <label for="name">Ваше ім'я:</label>
+            <input type="text" id="name" name="name" placeholder="Введіть ваше ім'я" required>
+        </div>
+
+        <div class="input-group">
+            <label for="email">Електронна пошта:</label>
+            <input type="email" id="email" name="email" placeholder="example@email.com" required>
+        </div>
+
+        <button type="submit" class="register-btn">Розпочати гру 🎮</button>
+        <div class="error-message" id="error-msg">Будь ласка, заповніть всі поля!</div>
+    </form>
+</div>
+
+<script>
+    // Theme Logic
+    function toggleTheme() {
+        document.body.classList.toggle('dark-mode');
+        const theme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
+        localStorage.setItem('theme', theme);
+    }
+
+    // Init Theme
+    if (localStorage.getItem('theme') === 'dark') {
+        document.body.classList.add('dark-mode');
+    }
+
+    function validateForm() {
+        const name = document.getElementById('name').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const errorMsg = document.getElementById('error-msg');
+
+        if (name === '' || email === '') {
+            errorMsg.style.display = 'block';
+            return false;
+        }
+
+        return true;
+    }
+</script>
+
+</body>
+</html>
+"""
+
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🇺🇦 Мовне відкриття 🇺🇦</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- МАСШТАБНИЙ ФІКС ДЛЯ МОБІЛЬНИХ (ГРА) --- */
+        * {
+            -webkit-tap-highlight-color: transparent; /* Вимикає синє підсвічування при кліку */
+            -webkit-touch-callout: none; /* Вимикає контекстне меню */
+        }
+        body {
+            -webkit-user-select: none; /* Заборона виділення тексту */
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        input, textarea {
+            -webkit-user-select: text; /* Дозвіл писати в інпутах */
+            user-select: text;
+        }
+        /* Глобальне вимкнення стандартної рамки фокусу */
+        button:focus, button:active, .option-btn:focus, .option-btn:active, #next-btn:focus, input:focus {
+            outline: none !important;
+            box-shadow: none !important;
+        }
+        /* ----------------------------------------- */
+
+        :root {
+            /* Light Theme */
+            --bg-start: #11998e;
+            --bg-end: #38ef7d;
+            --card-bg: white;
+            --text-color: #333;
+            --header-color: #0057B7;
+            --greeting-bg: #f1f2f6;
+            --greeting-text: #666;
+            --option-bg: #f8f9fa;
+            --option-border: #e9ecef;
+            --option-hover: #e3f2fd;
+            /* --option-hover-border: #2196f3;  <-- ВИДАЛИЛИ СИНЮ ОБВОДКУ */
+            --modal-bg: white;
+            --modal-text: #333;
+            --input-bg: white;
+            --input-text: #333;
+            --input-border: #ddd;
+        }
+
+        body.dark-mode {
+            /* Dark Theme */
+            --bg-start: #0f2027;
+            --bg-end: #203a43;
+            --card-bg: #2d3436;
+            --text-color: #ecf0f1;
+            --header-color: #74b9ff;
+            --greeting-bg: #636e72;
+            --greeting-text: #dfe6e9;
+            --option-bg: #636e72;
+            --option-border: #555;
+            --option-hover: #0984e3;
+            /* --option-hover-border: #74b9ff; <-- ВИДАЛИЛИ СИНЮ ОБВОДКУ */
+            --modal-bg: #2d3436;
+            --modal-text: #ecf0f1;
+            --input-bg: #636e72;
+            --input-text: white;
+            --input-border: #555;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-end) 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            color: var(--text-color);
+            padding: 10px;
+            box-sizing: border-box;
+            transition: background 0.5s ease, color 0.3s ease;
+        }
+
+        .beta-badge {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #333333;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            backdrop-filter: blur(5px);
+            z-index: 100;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .game-container {
+            background: var(--card-bg);
+            width: 100%;
+            max-width: 500px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            padding: 20px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: background 0.3s ease;
+        }
+
+        .users-counter {
+            background: #FFD700;
+            color: #0057B7;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: 0 3px 10px rgba(255, 215, 0, 0.4);
+            transition: all 0.3s;
+            align-self: center;
+            margin-bottom: 15px;
+            display: inline-block;
+        }
+
+        .users-counter:hover {
+            transform: scale(1.05);
+        }
+
+        .theme-toggle {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            transition: transform 0.3s;
+            z-index: 10;
+        }
+
+        .theme-toggle:hover {
+            transform: rotate(30deg);
+            background: rgba(255,255,255,0.1);
+        }
+
+        .game-header {
+            font-size: 24px;
+            color: var(--header-color);
+            margin-bottom: 15px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .user-greeting {
+            font-size: 16px;
+            color: var(--greeting-text);
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+            background: var(--greeting-bg);
+            padding: 10px;
+            border-radius: 10px;
+            transition: background 0.3s ease;
+        }
+
+        .profile-btn {
+            background: #0057B7;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            font-size: 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            width: 100%;
+        }
+
+        .profile-btn:hover {
+            background: #003d82;
+            transform: translateY(-2px);
+        }
+
+        .admin-btn {
+            background: #0088cc;
+            color: white;
+            text-decoration: none;
+            padding: 8px 20px;
+            font-size: 14px;
+            border-radius: 20px;
+            font-weight: 600;
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .admin-btn:hover {
+            background: #0077b5;
+            transform: translateY(-2px);
+        }
+
+        h2 {
+            color: var(--text-color);
+            margin-bottom: 20px;
+            margin-top: 10px;
+            font-size: 20px;
+            line-height: 1.4;
+        }
+
+        .options-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .option-btn {
+            background: var(--option-bg);
+            border: 2px solid var(--option-border);
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            color: var(--text-color);
+            width: 100%;
+            white-space: normal;
+        }
+
+        /* --- FIX: ЗАСТОСОВУЄМО HOVER ТІЛЬКИ НА ПРИСТРОЯХ З МИШКОЮ (ПК) --- */
+        @media (hover: hover) {
+            .option-btn:hover {
+                background: var(--option-hover);
+                /* border-color: transparent; */ /* Прибрали зміну кольору бордера */
+                color: var(--text-color);
+            }
+        }
+
+        .option-btn.correct {
+            background: #d4edda !important;
+            border-color: #28a745 !important;
+            color: #155724 !important;
+        }
+
+        .option-btn.wrong {
+            background: #f8d7da !important;
+            border-color: #dc3545 !important;
+            color: #721c24 !important;
+            opacity: 0.7;
+        }
+
+        .progress-container {
+            width: 100%;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            height: 8px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background-color: #2ecc71;
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        #next-btn {
+            display: none;
+            width: 100%;
+            margin-top: 20px;
+            padding: 12px;
+            background-color: #0984e3;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(9, 132, 227, 0.4);
+            animation: popIn 0.3s ease-out;
+        }
+
+        #next-btn:hover {
+            background-color: #74b9ff;
+        }
+
+        .start-btn {
+            background: #ff7675;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 18px;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(255, 118, 117, 0.4);
+            width: 100%;
+        }
+
+        .start-btn:hover {
+            background: #e17055;
+        }
+
+        .footer {
+            margin-top: 20px;
+            text-align: center;
+            color: white;
+            font-size: 12px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            line-height: 1.5;
+            padding: 0 10px;
+        }
+
+        /* Модальні вікна */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.6);
+            padding: 10px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: var(--modal-bg);
+            color: var(--modal-text);
+            margin: auto;
+            padding: 20px;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            position: relative;
+            transition: background 0.3s ease;
+        }
+
+        .close-modal {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 20px;
+        }
+
+        /* Стилі для інпутів у модалці */
+        .modal-content input {
+            background-color: var(--input-bg);
+            color: var(--input-text);
+            border: 1px solid var(--input-border);
+        }
+
+        .social-links {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .social-btn {
+            width: 100%;
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="beta-badge">БЕТА ТЕСТУВАННЯ</div>
+
+<div class="game-container">
+    <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+
+    <div class="users-counter" onclick="adminLogin()">
+        👥
+    </div>
+
+    <div class="game-header">🇺🇦 Мовне відкриття 🇺🇦</div>
+
+    <div class="user-greeting">
+        <span>Вітаємо, <strong><span id="display-name">{{ user_name }}</span></strong>!</span>
+        <button class="profile-btn" onclick="openProfile()">👤 Профіль</button>
+        <a href="https://t.me/Nazar_la" target="_blank" class="admin-btn">✈️ Написати адміну</a>
+    </div>
+
+    <div id="start-screen">
+        <h2 style="margin: 0 0 15px 0;">Західна Ґвара</h2>
+        <p style="font-size: 16px; margin-bottom: 20px;">Велика вікторина (<span id="total-q">50</span> питань)</p>
+        <button class="start-btn" onclick="startGame()">Почати гру</button>
+    </div>
+
+    <div id="game-screen" style="display: none;">
+        <div class="progress-container">
+            <div class="progress-bar" id="progress"></div>
+        </div>
+
+        <div id="live-score" style="text-align: center; font-weight: bold; margin: 10px 0; color: var(--text-color); font-size: 16px;">
+            0% (✅ 0 | ❌ 0)
+        </div>
+
+        <h2 id="q-text">Питання</h2>
+
+        <div class="options-grid" id="options-area">
+            </div>
+
+        <button id="next-btn" onclick="nextQuestion()">Наступне питання ➡️</button>
+    </div>
+
+    <div id="result-screen" style="display: none;">
+        <h2 style="font-size: 28px;">Гру завершено!</h2>
+        <div style="font-size: 20px; color: #d35400; margin-bottom: 10px;" id="rank-text">Турист</div>
+        <div style="font-size: 40px; color: #2ecc71; font-weight: bold; margin-bottom: 20px;">
+            <span id="score">0</span> / <span id="total-score-q">50</span>
+        </div>
+        <button class="start-btn" onclick="location.reload()">Спробувати ще</button>
+    </div>
+
+</div>
+
+<div id="profileModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closeProfile()">×</span>
+        <h2 style="color: #0057B7; margin-top: 0; font-size: 22px;">👤 Профіль</h2>
+
+        <div class="success-message" id="success-msg" style="display:none; background:#d4edda; padding:10px; margin:10px 0; border-radius:5px; color: #155724;">✅ Оновлено!</div>
+
+        <div class="profile-info" id="view-mode">
+            <p><strong>Ім'я:</strong> <br><span id="profile-name">{{ user_name }}</span></p>
+            <p><strong>Email:</strong> <br><span id="profile-email">{{ user_email }}</span></p>
+            <button class="edit-btn" onclick="toggleEditMode()" style="width:100%; margin: 10px 0; background:#0984e3; color:white; border:none; padding:10px; border-radius:8px;">✏️ Редагувати</button>
+        </div>
+
+        <div class="edit-section" id="edit-mode">
+            <form id="edit-form" onsubmit="return saveProfile(event)">
+                <div style="text-align:left; margin-bottom:10px;">
+                    <label>Ім'я:</label>
+                    <input type="text" id="edit-name" value="{{ user_name }}" required style="width:100%; padding:8px; border-radius:5px;">
+                </div>
+
+                <div style="text-align:left; margin-bottom:10px;">
+                    <label>Email:</label>
+                    <input type="email" id="edit-email" value="{{ user_email }}" required style="width:100%; padding:8px; border-radius:5px;">
+                </div>
+
+                <button type="submit" style="width:100%; background:#00b894; color:white; border:none; padding:10px; border-radius:8px; margin-bottom:5px;">💾 Зберегти</button>
+                <button type="button" onclick="toggleEditMode()" style="width:100%; background:#636e72; color:white; border:none; padding:10px; border-radius:8px;">❌ Скасувати</button>
+            </form>
+        </div>
+
+        <div class="game-info" style="font-size:12px; margin-top:15px; color:#888;">
+            📅 27 січня 2026
+        </div>
+
+        <h3 style="color: #0057B7; font-size: 16px; margin-top: 15px;">📱 Соцмережі:</h3>
+        <div class="social-links">
+            <a href="https://youtube.com/shorts/29DlWrzLCIE?si=ZtrEq-2891jh6tq2" target="_blank" class="social-btn" style="background:#FF0000; color:white; padding:10px; text-decoration:none; border-radius:8px;">
+                ▶️ YouTube
+            </a>
+            <a href="https://www.tiktok.com/@._629587" target="_blank" class="social-btn" style="background:#000000; color:white; padding:10px; text-decoration:none; border-radius:8px;">
+                🎵 TikTok
+            </a>
+        </div>
+
+        <button onclick="logout()" style="width:100%; background:#dc3545; color:white; border:none; padding:10px; border-radius:8px; margin-top:15px;">🚪 Вийти</button>
+    </div>
+</div>
+
+<div id="usersListModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closeUsersList()">×</span>
+        <h2 style="color: #0057B7; margin-top: 0; font-size: 22px;">👥 Гравці</h2>
+
+        <div class="users-list" id="users-list-container" style="text-align:left;">
+            </div>
+    </div>
+</div>
+
+<div class="footer">
+    © 2026 Мовне відкриття • Вивчаємо рідну мову разом!<br>
+    <a href="https://t.me/Nazar_la" target="_blank" style="color: white; text-decoration: none; font-weight: bold; border-bottom: 1px dashed white; margin-top: 5px; display: inline-block;">
+        💬 Написати адміну
+    </a>
+</div>
+
+<script>
+    const questions = {{ questions|tojson }};
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let canClick = true;
+
+    // --- Admin Feature (Code: 2502) ---
+    function adminLogin() {
+        let code = prompt("🔒 Введіть пароль адміністратора:");
+        if (code === "2502") {
+             fetch('/get-users')
+            .then(response => response.json())
+            .then(data => {
+                alert("📊 Всього зареєстровано гравців: " + data.users.length);
+                const container = document.getElementById('users-list-container');
+                container.innerHTML = '';
+                if (data.users.length === 0) {
+                    container.innerHTML = '<div style="text-align: center; padding: 20px;">Список порожній 😔</div>';
+                } else {
+                    data.users.forEach((user, index) => {
+                        const userDiv = document.createElement('div');
+                        userDiv.style.background = index === 0 ? '#fff3cd' : (document.body.classList.contains('dark-mode') ? '#636e72' : '#f8f9fa');
+                        userDiv.style.padding = '10px';
+                        userDiv.style.marginBottom = '5px';
+                        userDiv.style.borderRadius = '5px';
+                        userDiv.style.borderLeft = index === 0 ? '4px solid #FFD700' : '4px solid #0057B7';
+                        const textColor = document.body.classList.contains('dark-mode') ? 'white' : '#2c3e50';
+                        const subColor = document.body.classList.contains('dark-mode') ? '#dfe6e9' : '#666';
+                        userDiv.innerHTML = `<div><div style="font-weight:bold; color:${textColor};">${user.name}${index === 0 ? '<span style="background:#FFD700; color:#0057B7; padding:2px 6px; border-radius:10px; font-size:10px; margin-left:5px;">⭐</span>' : ''}</div><div style="font-size:11px; color:${subColor};">${user.registered_at}</div></div>`;
+                        container.appendChild(userDiv);
+                    });
+                }
+                document.getElementById('usersListModal').style.display = 'flex';
+            });
+        } else if (code !== null) {
+            alert("⛔ Невірний пароль!");
+        }
+    }
+
+    // --- Theme Logic ---
+    function toggleTheme() {
+        document.body.classList.toggle('dark-mode');
+        const theme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
+        localStorage.setItem('theme', theme);
+    }
+
+    // Init Theme on Load
+    if (localStorage.getItem('theme') === 'dark') {
+        document.body.classList.add('dark-mode');
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const totalSpan = document.getElementById('total-q');
+        if(totalSpan) totalSpan.innerText = questions.length;
+        const totalScoreSpan = document.getElementById('total-score-q');
+        if(totalScoreSpan) totalScoreSpan.innerText = questions.length;
+        // Init counter with 0% of TOTAL
+        document.getElementById('live-score').innerText = `0% (✅ 0 | ❌ 0)`;
+    });
+
+    function openProfile() {
+        document.getElementById('profileModal').style.display = 'flex';
+        document.getElementById('view-mode').style.display = 'block';
+        document.getElementById('edit-mode').style.display = 'none';
+        document.getElementById('success-msg').style.display = 'none';
+    }
+
+    function closeProfile() {
+        document.getElementById('profileModal').style.display = 'none';
+    }
+
+    function closeUsersList() {
+        document.getElementById('usersListModal').style.display = 'none';
+    }
+
+    function toggleEditMode() {
+        const viewMode = document.getElementById('view-mode');
+        const editMode = document.getElementById('edit-mode');
+        if (editMode.style.display === 'none') {
+            viewMode.style.display = 'none';
+            editMode.style.display = 'block';
+        } else {
+            viewMode.style.display = 'block';
+            editMode.style.display = 'none';
+        }
+    }
+
+    function saveProfile(event) {
+        event.preventDefault();
+        const newName = document.getElementById('edit-name').value.trim();
+        const newEmail = document.getElementById('edit-email').value.trim();
+        if (newName === '' || newEmail === '') {
+            alert('Будь ласка, заповніть всі поля!');
+            return false;
+        }
+        fetch('/update-profile', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name: newName,
+                email: newEmail
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('profile-name').innerText = newName;
+                document.getElementById('profile-email').innerText = newEmail;
+                document.getElementById('display-name').innerText = newName;
+                document.getElementById('success-msg').style.display = 'block';
+                setTimeout(() => {
+                    document.getElementById('success-msg').style.display = 'none';
+                }, 3000);
+                toggleEditMode();
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Помилка при оновленні профілю!');
+        });
+        return false;
+    }
+
+    function logout() {
+        if (confirm('Ви впевнені, що хочете вийти з акаунта?')) {
+            window.location.href = '/logout';
+        }
+    }
+
+    window.onclick = function(event) {
+        const profileModal = document.getElementById('profileModal');
+        const usersModal = document.getElementById('usersListModal');
+        if (event.target == profileModal) {
+            closeProfile();
+        }
+        if (event.target == usersModal) {
+            closeUsersList();
+        }
+    }
+
+    function startGame() {
+        document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('game-screen').style.display = 'block';
+        document.getElementById('total-score-q').innerText = questions.length;
+        // Reset and show initial stat
+        document.getElementById('live-score').innerText = `0% (✅ 0 | ❌ 0)`;
+        showQuestion();
+    }
+
+    function showQuestion() {
+        document.getElementById('next-btn').style.display = 'none';
+        const q = questions[currentQuestionIndex];
+        const total = questions.length;
+        const progressPercent = ((currentQuestionIndex) / total) * 100;
+        document.getElementById('progress').style.width = progressPercent + '%';
+        document.getElementById('q-text').innerText = q.question;
+        const optionsArea = document.getElementById('options-area');
+        optionsArea.innerHTML = '';
+        canClick = true;
+        q.options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.innerText = opt;
+            btn.onclick = () => checkAnswer(btn, opt, q.answer);
+            optionsArea.appendChild(btn);
+        });
+    }
+
+    function checkAnswer(btn, selected, correct) {
+        if (!canClick) return;
+        canClick = false;
+
+        if (selected === correct) {
+            btn.classList.add('correct');
+            score++;
+        } else {
+            btn.classList.add('wrong');
+            const buttons = document.querySelectorAll('.option-btn');
+            buttons.forEach(b => {
+                if (b.innerText === correct) {
+                    b.classList.add('correct');
+                }
+            });
+        }
+
+        // --- NEW LOGIC: GLOBAL PROGRESS ---
+        const totalQuestions = questions.length;
+        const currentAnswered = currentQuestionIndex + 1; // Скільки питань пройдено
+        const wrong = currentAnswered - score; // Неправильні = Всього пройдено - Правильні
+
+        const percentage = Math.round((currentAnswered / totalQuestions) * 100);
+
+        // Показуємо: % Прогресу (✅ Правильні | ❌ Неправильні)
+        document.getElementById('live-score').innerText = `${percentage}% (✅ ${score} | ❌ ${wrong})`;
+        // ----------------------------------
+
+        const nextBtn = document.getElementById('next-btn');
+        if (currentQuestionIndex === questions.length - 1) {
+            nextBtn.innerText = "Подивитись результат 🏆";
+        } else {
+            nextBtn.innerText = "Наступне питання ➡️";
+        }
+        nextBtn.style.display = 'block';
+    }
+
+    function nextQuestion() {
+        currentQuestionIndex++;
+        if (currentQuestionIndex < questions.length) {
+            showQuestion();
+        } else {
+            showResults();
+        }
+    }
+
+    function showResults() {
+        document.getElementById('game-screen').style.display = 'none';
+        document.getElementById('result-screen').style.display = 'block';
+        document.getElementById('score').innerText = score;
+        const total = questions.length;
+        let rank = "";
+        if (score === total) rank = "🏆 Легендарний Батяр!";
+        else if (score >= total * 0.8) rank = "😎 Свій чоловік (Місцевий)";
+        else if (score >= total * 0.5) rank = "🎒 Поважний турист";
+        else rank = "👶 Тобі ще вчитись і вчитись";
+        document.getElementById('rank-text').innerText = rank;
+    }
+</script>
+
+</body>
+</html>
+"""
+
+
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        email = request.form.get('email')
+
+        # Додаємо нового користувача
+        add_user(name, email)
+
+        # Зберігаємо дані в сесії
+        session['user_name'] = name
+        session['user_email'] = email
+        session['registered'] = True
+        return redirect(url_for('game'))
+
+    if not session.get('registered'):
+        return render_template_string(REGISTRATION_TEMPLATE)
+
+    return redirect(url_for('game'))
+
+
+@app.route('/game')
+def game():
+    if not session.get('registered'):
+        return redirect(url_for('index'))
+
+    user_name = session.get('user_name', 'Гравець')
+    user_email = session.get('user_email', '')
+
+    return render_template_string(
+        HTML_TEMPLATE,
+        questions=QUESTIONS,
+        user_name=user_name,
+        user_email=user_email
+    )
+
+
+@app.route('/get-users')
+def get_users():
+    users = load_users()
+    return jsonify({'users': users})
+
+
+@app.route('/update-profile', methods=['POST'])
+def update_profile():
+    data = request.get_json()
+    new_name = data.get('name')
+    new_email = data.get('email')
+
+    session['user_name'] = new_name
+    session['user_email'] = new_email
+
+    users = load_users()
+    updated = False
+    for user in users:
+        if user['email'] == new_email or user['name'] == session.get('user_name'):
+            if user['email'] == new_email:
+                user['name'] = new_name
+                updated = True
+                break
+
+    if updated:
+        save_users(users)
+
+    return jsonify({'success': True})
+
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('index'))
+
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
